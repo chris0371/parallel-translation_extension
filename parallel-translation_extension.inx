@@ -1,0 +1,76 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<inkscape-extension xmlns="http://www.inkscape.org/namespace/inkscape/extension">
+  <name>Parallel Translation</name>
+  <id>org.inkscape.parallel-translation_extension</id>
+
+  <param name="tab" type="notebook">
+
+    <page name="info" gui-text="Info">
+      <label xml:space="preserve">This extension allows to do parallel translations of selected paths.
+
+To show information about first selected path, use this tab.
+To apply the translation to all selcted paths, use the 'Translation' tab.
+To align a group to a path, use the 'Group-Alignment' tab.
+      </label>
+     </page>
+
+    <page name="translation" gui-text="Translation">
+      <param name="copyMode" type="optiongroup" appearance="combo" gui-text="Movement is applied to:">
+        <option value="none">just the object (no copy)</option>
+        <option value="copy">a copy of the object</option>
+        <option value="obj" >the object keeping a copy</option>
+      </param>
+      <hbox>
+        <label>Distance to move:</label>
+        <spacer size="expand"></spacer>
+        <param name="distance" type="float" precision="3" min="-9999" max="9999" gui-text="">0</param>
+        <param name="distUnit" type="optiongroup" appearance="combo" gui-text="">
+            <option value="in">in</option>
+            <option value="pt">pt</option>
+            <option value="px">px</option>
+            <option value="mm">mm</option>
+            <option value="cm">cm</option>
+            <option value="m">m</option>
+            <option value="km">km</option>
+            <option value="Q">Q</option>
+            <option value="pc">pc</option>
+            <option value="yd">yd</option>
+            <option value="ft">ft</option>
+        </param>
+      </hbox>
+      <param name="reverse" type="boolean" gui-text="Translate in opposite direction">false</param>
+      <hbox>
+        <param name="useFixedAngle" type="boolean" gui-text="Use a fixed translation angle of:">false</param>
+        <spacer size="expand"></spacer>
+        <param name="fixedAngle" type="float" precision="2" min="-360" max="360" gui-text="">0</param>
+        <label>degrees</label>
+      </hbox>
+    </page>
+
+    <page name="align" gui-text="Group-Alignment">
+      <param name="copyModeA" type="optiongroup" appearance="combo" gui-text="Alignment is applied to:">
+        <option value="none">just the group (no copy)</option>
+        <option value="copy">a copy of the group</option>
+        <option value="obj" >the group keeping a copy</option>
+      </param>
+      <param name="lengthModeA" type="optiongroup" appearance="combo" gui-text="Group length adjustment method:">
+        <option value="none">no adjustment</option>
+        <option value="scale">stretch/resize the group</option>
+        <option value="endpoints" >adjust line endpoints</option>
+      </param>
+      <param name="colorA" type="color" appearance="colorbutton" gui-text="Rotation center object fill color:">0xff00ffff</param>
+      <param name="reverseA" type="boolean" gui-text="Rotate group by an additional angle of 180 degrees">false</param>
+    </page>
+
+   </param>
+
+  <effect>
+    <!--object-type>path</object-type-->
+    <effects-menu>
+      <submenu name="Modify Path"/>
+    </effects-menu>
+  </effect>
+  <script>
+    <command location="inx" interpreter="python">parallel-translation_extension.py</command>
+  </script>
+</inkscape-extension>
