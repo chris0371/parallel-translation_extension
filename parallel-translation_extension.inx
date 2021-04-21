@@ -25,9 +25,9 @@ To align a group to a path, use the 'Group-Alignment' tab.
         <spacer size="expand"></spacer>
         <param name="distance" type="float" precision="3" min="-9999" max="9999" gui-text="">0</param>
         <param name="distUnit" type="optiongroup" appearance="combo" gui-text="">
-            <option value="in">in</option>
-            <option value="pt">pt</option>
             <option value="px">px</option>
+            <option value="pt">pt</option>
+            <option value="in">in</option>
             <option value="mm">mm</option>
             <option value="cm">cm</option>
             <option value="m">m</option>
@@ -53,13 +53,22 @@ To align a group to a path, use the 'Group-Alignment' tab.
         <option value="copy">a copy of the group</option>
         <option value="obj" >the group keeping a copy</option>
       </param>
-      <param name="lengthModeA" type="optiongroup" appearance="combo" gui-text="Group length adjustment method:">
-        <option value="none">no adjustment</option>
-        <option value="scale">stretch/resize the group</option>
-        <option value="endpoints" >adjust line endpoints</option>
+      <param name="lengthModeA" type="optiongroup" appearance="combo"
+        gui-text="Group length adjustment method:"
+        gui-description="Selects how the group width shall be adjusted to match the path length">
+          <option value="none">no adjustment</option>
+          <option value="scale">stretch/resize the group</option>
+          <option value="endpoints" >adjust line endpoints</option>
       </param>
-      <param name="colorA" type="color" appearance="colorbutton" gui-text="Rotation center object fill color:">0xff00ffff</param>
-      <param name="reverseA" type="boolean" gui-text="Rotate group by an additional angle of 180 degrees">false</param>
+      <param name="endpTol" type="int" min="0" max="49" appearance="full"
+        gui-text="Endpoint tolerance"
+        gui-description="Affects which nodes are moved in 'adjust line endpoints'-mode. This is the maximal distance of a node to the groups edge in order to be moved (in percentage of the groups width)">15</param>
+      <param name="colorA" type="color" appearance="colorbutton"
+        gui-text="Rotation center object fill color:"
+        gui-description="Fill color of the object that marks the groups rotation center.">0xff00ffff</param>
+      <param name="reverseA" type="boolean"
+        gui-text="Rotate group by an additional angle of 180 degrees" 
+        gui-description="This may be handy in case the start- and end-node of the controlling path are reversed.">false</param>
     </page>
 
    </param>

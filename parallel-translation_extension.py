@@ -38,6 +38,7 @@
 # https://inkscape.gitlab.io/extensions/documentation/inkex.html
 # https://inkscape-extensions-guide.readthedocs.io/en/latest/inkex-modules.html#
 # https://gitlab.com/inkscape/extensions
+# https://inkscape.gitlab.io/inkscape/doxygen-extensions/index.html
 
 
 # The purpose of this extension is to help performing parallel
@@ -51,6 +52,13 @@
 # adjust its width to match the line length.
 #
 # V0.1  2021-04-20 : initial version.
+# V0.2  2021-04-21 : 
+#   - Fix: avoid using deprecated inkex API.
+#   - Fix: move both point and handles of a node to avoid 
+#          non-intentional creating curves out of flat line segments.
+#   - New: added 'endpoint tolerance' parameter (--endpTol)
+#   - New: now supports having the rotation center object outside the 
+#          horizontal center of the group. 
 #
 
 import math
@@ -74,6 +82,7 @@ class ParallelTranlationExtension(inkex.EffectExtension):
         pars.add_argument("--fixedAngle"   , type=float        , default=0     , help="Translation angle")
         pars.add_argument("--copyModeA"    , type=str          , default="none", help="Align copy or original")
         pars.add_argument("--lengthModeA"  , type=str          , default="none", help="Group length adjustment method")
+        pars.add_argument("--endpTol"      , type=int          , default=15    , help="Enpoint tolerance (percent of group width)")
         pars.add_argument("--colorA"       , type=int          , default=0     , help="Color of rotation center circle")
         pars.add_argument("--reverseA"     , type=inkex.Boolean, default=False , help="additinal group rotate by 180 degrees")
 
@@ -81,7 +90,7 @@ class ParallelTranlationExtension(inkex.EffectExtension):
     def effect(self):
         pathCount = 0
         groupCount = 0
-        for elem in self.svg.get_selected():
+        for elem in self.svg.selected.values():
             if isinstance(elem, inkex.PathElement):
                 pathCount += 1
             elif isinstance(elem, inkex.Group):
@@ -90,29 +99,40 @@ class ParallelTranlationExtension(inkex.EffectExtension):
             
         if self.options.tab == "align":
             if pathCount == 0 or groupCount == 0:
-                raise inkex.AbortExtension("In alignment mode, please select a group and a path.")
+                raise inkex.AbortExtension(
+                    "In alignment mode, please select exactly one group "
+                    "and at least one path to align it to.")
             if groupCount > 1:
-                raise inkex.AbortExtension("Sorry, we can align a single group only.")
+                raise inkex.AbortExtension(
+                    "Sorry, we can align a single group only.")
             if pathCount > 1 and self.options.copyModeA != 'copy':
-                raise inkex.AbortExtension("To align to multiple pathes at once, please choose to apply the alignment to copies of the group.")
+                raise inkex.AbortExtension(
+                    "To align to multiple paths at once, please choose "
+                    "to apply the alignment to copies of the group.")
         else:        
             if pathCount == 0:
-                raise inkex.AbortExtension("Please select one path at least.")
+                raise inkex.AbortExtension(
+                    "Please select one path at least.")
 
-        for elem in self.svg.get_selected():
+        for elem in self.svg.selected.values():
             self.process_node(elem)
-        
+
 
     @staticmethod
-    def very_close(a, b):
-        # two numbers are compared for (very close) numerical equality
-        eps = 1e-9
-        return abs(a-b) < eps
+    def close_enough(a, b, maxdist):
+        # two numbers are compared for close-enough numerical equality
+        if maxdist <= 0 :
+            eps = 1e-9
+        else:
+            eps = maxdist
+        return abs(a-b) <= eps
 
 
-    def edgeResize(self, obj, length):
+    def edgeResize(self, obj, length, rbb):
         bbox = obj.bounding_box()
         dx = (length - bbox.width) / 2
+        offcenter = rbb.x.center - bbox.x.center
+        maxdist = (bbox.width * self.options.endpTol) / 100
         
         # Iterate over all children of the group-object.
         # Find path nodes located at the left and right edges of the 
@@ -128,15 +148,17 @@ class ParallelTranlationExtension(inkex.EffectExtension):
             for sub in csp:
                 for node in sub:
                     node_x = node[1][0]
-                    if self.very_close( node_x, bbox.left ):
-                        node[1][0] -= dx
+                    if self.close_enough( node_x, bbox.left, maxdist ):
+                        for i in range(0, 3):
+                            node[i][0] -= (dx - offcenter)
                         node_count += 1
                         """msg = "id:{} touched left edge at:{}"
                         self.msg(msg.format(child.get_id(), 
                                             bbox.left))"""
 
-                    if self.very_close( node_x, bbox.right ):
-                        node[1][0] += dx
+                    if self.close_enough( node_x, bbox.right, maxdist ):
+                        for i in range(0, 3):
+                            node[i][0] += (dx + offcenter)
                         node_count += 1
                         """msg = "id:{} touched right edge at:{}"
                         self.msg(msg.format(child.get_id(), 
@@ -184,25 +206,33 @@ class ParallelTranlationExtension(inkex.EffectExtension):
         # so we are starting with no transform assigned to the group
         self.recursiveFuseTransform(objToMove)
         
-        # Adjust the objects length. Since we haven't moved or rotated
-        # it by now, we have to adjust its width only.
-        if self.options.lengthModeA != "none":
-            if self.options.lengthModeA == "scale":
-                tr = inkex.Transform()
-                tr.add_scale( length / objToMove.bounding_box().width, 1 )
-                objToMove.transform = tr * objToMove.transform
-                self.recursiveFuseTransform(objToMove)
-            elif self.options.lengthModeA == "endpoints":
-                self.edgeResize( objToMove, length )
-        
         # locate the rotation center marker in the object to move by 
         # checking for the rotation marker fill color within the group
         for child in objToMove.iterchildren():
             if child.style.get_color(name='fill') == rotation_col:
                 rotation_bb = child.bounding_box()
         if rotation_bb is None:
-            raise inkex.AbortExtension("No rotation center object found in group.")
+            raise inkex.AbortExtension(
+                "No rotation center object found in group.")
 
+        # adjust the objects length. Since we haven't moved or rotated
+        # it by now, we have to adjust its width only.
+        if self.options.lengthModeA != "none":
+            if self.options.lengthModeA == "scale":
+                if not math.isclose( rotation_bb.x.center, objToMove.bounding_box().x.center ):
+                    raise inkex.AbortExtension(
+                        "Warning: rotation center is outside the groups horizontal center. "
+                        "This is not supported in stretch/resize adjustment mode. "
+                        "You may want to try the line endpoint adjust mode intead.")
+                    
+                tr = inkex.Transform()
+                tr.add_scale( length / objToMove.bounding_box().width, 1 )
+                objToMove.transform = tr * objToMove.transform
+                self.recursiveFuseTransform(objToMove)
+                
+            elif self.options.lengthModeA == "endpoints":
+                self.edgeResize( objToMove, length, rotation_bb )
+        
         # then, move it to the desired location
         dx = x - rotation_bb.x.center
         dy = y - rotation_bb.y.center
@@ -233,7 +263,7 @@ class ParallelTranlationExtension(inkex.EffectExtension):
             y2=sub[-1][1][1]
             width = x2-x1
             heigth= y2-y1
-            if self.very_close( width, 0 ):
+            if math.isclose( width, 0 ):
                 if heigth > 0:
                     alpha = math.pi/2
                 else:
