@@ -52,6 +52,7 @@
 # adjust its width to match the line length.
 #
 # V0.1  2021-04-20 : initial version.
+#
 # V0.2  2021-04-21 : 
 #   - Fix: avoid using deprecated inkex API.
 #   - Fix: move both point and handles of a node to avoid 
@@ -59,6 +60,14 @@
 #   - New: added 'endpoint tolerance' parameter (--endpTol)
 #   - New: now supports having the rotation center object outside the 
 #          horizontal center of the group. 
+#
+# V0.3  2021-04-28 : 
+#   - New: now allows to select two nodes of a larger path to be used
+#          as straight line to use for calculating the length and
+#          translation angle. 
+#   - Mod: Added 'global' section to the information printout.
+#   - Mod: For closed paths (start point matches end point), we 
+#          use a hardcoded translation angle of 0 degrees.
 #
 
 import math
@@ -114,6 +123,20 @@ class ParallelTranlationExtension(inkex.EffectExtension):
                 raise inkex.AbortExtension(
                     "Please select one path at least.")
 
+        if self.options.tab == "info":
+            msg = "Global info:"
+            self.msg(msg)
+            msg = " Document name: {}"
+            self.msg(msg.format(self.svg.name))
+            msg = " Dimensions: width={} height={} scale={} unit={}"
+            self.msg(msg.format(self.svg.width, self.svg.height, self.svg.scale, self.svg.unit))
+            msg = " Selected: {} group(s), {} path(s), {} node(s)"
+            self.msg(msg.format(groupCount, pathCount, len(self.options.selected_nodes)))
+            if self.options.selected_nodes:
+                msg = " Nodes: {}"
+                self.msg(msg.format(self.options.selected_nodes))
+            self.msg(' ')
+            
         for elem in self.svg.selected.values():
             self.process_node(elem)
 
@@ -248,23 +271,63 @@ class ParallelTranlationExtension(inkex.EffectExtension):
         self.recursiveFuseTransform(objToMove)
 
 
+    # returns <true> if we have selected nodes from the object given
+    # by name. Indices of selected nodes matching the given object name 
+    # and subpath index are appended to the given index list
+    def have_selected_nodes(self, name, sub_idx, idx_list ):
+        name_found = False
+        for node in self.options.selected_nodes:
+            # The string with selected nodes looks like this:
+            # 'Object-id:subpath-index:node-index'
+            # example: 'path1419:0:1'            
+            substr = node.split(":")
+            if name == substr[0]:
+                name_found = True
+                if sub_idx == int(substr[1]):
+                    idx_list.append(int(substr[2]))
+        return name_found
+        
+
     def process_node(self, elem):
         if not isinstance(elem, inkex.PathElement):
             return # just ignore all non-path elements
         
-        for sub in elem.path.to_superpath():            
+        sub_idx = 0
+        hint = ""
+        for sub in elem.path.to_superpath():
             # Calculate the objects rotation angle alpha.
             # A horizontal line from left to right is 0 degrees.
             # Positive angles means the line is rotated clockwise.
             # -180 < alpha <= +180
-            x1=sub[0][1][0]
-            y1=sub[0][1][1]
-            x2=sub[-1][1][0]
-            y2=sub[-1][1][1]
+            node_idx = []
+            if self.have_selected_nodes( elem.get_id(), sub_idx, node_idx ):
+                # we have selected nodes from this element.
+                if len(node_idx) == 2:
+                    # if the user selected exactly two individual nodes
+                    # of a probably larger path, we shall use these.
+                    p1_idx = node_idx[0]
+                    p2_idx = node_idx[1]
+                    hint = " (Segment defined by selected nodes)"
+                else:
+                    sub_idx += 1
+                    continue
+            else:
+                # if no nodes have been selected, we use
+                # the start- and endnode of the sub-path
+                p1_idx = 0
+                p2_idx = -1
+            
+            # Calculate angle, length, midpoint, etc.
+            x1=sub[p1_idx][1][0]
+            y1=sub[p1_idx][1][1]
+            x2=sub[p2_idx][1][0]
+            y2=sub[p2_idx][1][1]
             width = x2-x1
             heigth= y2-y1
             if math.isclose( width, 0 ):
-                if heigth > 0:
+                if math.isclose( heigth, 0 ):
+                    alpha = 0
+                elif heigth > 0:
                     alpha = math.pi/2
                 else:
                     alpha = -math.pi/2
@@ -294,7 +357,7 @@ class ParallelTranlationExtension(inkex.EffectExtension):
             dx = -math.sin(da) * dist
             dy = math.cos(da) * dist
 
-            if self.options.tab in ('translation'):
+            if self.options.tab == "translation":
                 if self.options.copyMode in ('copy'):
                     objToMove = elem.duplicate()
                 else:
@@ -303,31 +366,36 @@ class ParallelTranlationExtension(inkex.EffectExtension):
                     objToMove = elem
                 objToMove.path = objToMove.path.translate( dx, dy )
             
-            elif self.options.tab in ('align'):
+            elif self.options.tab == "align":
                 if self.options.reverseA:
                     alpha = alpha + math.radians(180)
                 self.align(xm, ym, alpha, length)
             
-            else:
+            elif self.options.tab == "info":
                 msg = "Measuring result:"
                 self.msg(msg)
-                msg = " object name: {}"
+                msg = "  object name: {}"
                 self.msg(msg.format(elem.get_id()))
-                msg = " start point: x={} y={}"
+                msg = "  subpath: {} {}"
+                self.msg(msg.format(sub_idx, hint))
+                msg = "  start point: x={} y={}"
                 self.msg(msg.format(x1,y1))
-                msg = " end point:   x={} y={}"
+                msg = "  end point:   x={} y={}"
                 self.msg(msg.format(x2,y2))
-                msg = " mid point:   x={} y={}"
+                msg = "  mid point:   x={} y={}"
                 self.msg(msg.format(xm,ym))
-                msg = " object length: {}"
+                msg = "  object length: {}"
                 self.msg(msg.format(length))
-                msg = " object angle     : {}°"
+                msg = "  object angle     : {}°"
                 self.msg(msg.format(math.degrees(alpha)))
-                msg = " translation angle: {}°"
+                msg = "  translation angle: {}°"
                 self.msg(msg.format(math.degrees(da)))
-                msg = " translation:   dx={} dy={}"
+                msg = "  translation:   dx={} dy={}"
                 self.msg(msg.format(dx,dy))
-                exit()
+                self.msg(" ")
+            
+            # continue for-loop with next sub-index
+            sub_idx += 1
 
 
     @staticmethod
