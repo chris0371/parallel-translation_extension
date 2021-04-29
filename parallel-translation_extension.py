@@ -1,7 +1,9 @@
 #!/usr/bin/env python
 # coding=utf-8
 #
-# Copyright (C) 2021, Christian Vogt <vogtc@uni-hildesheim.de>
+# Copyright (C) 2021, Stiftung Universität Hildesheim, 
+#                     Institut für Physik
+#                     Christian Vogt <vogtc@uni-hildesheim.de>
 #
 # recursiveFuseTransform() has originally been written by 
 # Mark "Klowner" Riedesel
@@ -51,6 +53,11 @@
 # drawn in any angle. This means: moving and rotating the group and
 # adjust its width to match the line length.
 #
+# To align two objects, it is also possible to turn one of them into 
+# a group by adding a 'rotation center object' in the middle of the 
+# selected path/lines, and rotate the group into its 0-degrees position.
+# This group can then aligned to the other object.
+#
 # V0.1  2021-04-20 : initial version.
 #
 # V0.2  2021-04-21 : 
@@ -69,6 +76,11 @@
 #   - Mod: For closed paths (start point matches end point), we 
 #          use a hardcoded translation angle of 0 degrees.
 #
+# V0.4  2021-04-29 :
+#   - New: Added the 'Obj-to-Group' tab.
+#   - Mod: Updated the info-tab description.
+#   
+#
 
 import math
 import inkex
@@ -83,17 +95,23 @@ class ParallelTranlationExtension(inkex.EffectExtension):
 
     def add_arguments(self, pars):
         pars.add_argument("--tab")
+        # 'translation' Tab
         pars.add_argument("--copyMode"     , type=str          , default="none", help="Move copy or original")
         pars.add_argument("--distance"     , type=float        , default=0     , help="Distance to move")
         pars.add_argument("--distUnit"     , type=str          , default="mm"  , help="Unit of the distance")
         pars.add_argument("--reverse"      , type=inkex.Boolean, default=False , help="Move in opposite direction")
         pars.add_argument("--useFixedAngle", type=inkex.Boolean, default=False , help="use fixed translation angle")
+        # 'align' Tab
         pars.add_argument("--fixedAngle"   , type=float        , default=0     , help="Translation angle")
         pars.add_argument("--copyModeA"    , type=str          , default="none", help="Align copy or original")
         pars.add_argument("--lengthModeA"  , type=str          , default="none", help="Group length adjustment method")
         pars.add_argument("--endpTol"      , type=int          , default=15    , help="Enpoint tolerance (percent of group width)")
         pars.add_argument("--colorA"       , type=int          , default=0     , help="Color of rotation center circle")
         pars.add_argument("--reverseA"     , type=inkex.Boolean, default=False , help="additinal group rotate by 180 degrees")
+        # 'group' Tab
+        pars.add_argument("--ctSize"       , type=float        , default=1     , help="Size of rotation center object")
+        pars.add_argument("--ctSzUnit"     , type=str          , default="mm"  , help="Unit of the size")
+        pars.add_argument("--reverseG"     , type=inkex.Boolean, default=False , help="additinal group rotate by 180 degrees")
 
 
     def effect(self):
@@ -271,6 +289,34 @@ class ParallelTranlationExtension(inkex.EffectExtension):
         self.recursiveFuseTransform(objToMove)
 
 
+    def group(self, elem, x, y, alpha):
+        # first, apply any transformations the object may have already
+        # so we are starting with no transform assigned to the group
+        self.recursiveFuseTransform(elem)
+        
+        # then, we'll rotate it back to the zero position
+        tr = inkex.Transform()
+        tr.add_rotate( math.degrees(-alpha), x, y )
+        elem.transform = tr * elem.transform
+        self.recursiveFuseTransform(elem)
+
+        # now, draw the roration center object and group it with
+        # the original element
+        group = elem.getparent().add(inkex.Group())
+        group.add(elem)
+        style = "color:#000000;fill:{};stroke-width:1;stroke:none".format(
+            str(inkex.Color(self.options.colorA).to_rgb()))
+        size = self.svg.unittouu('{}{}'.format(self.options.ctSize, 
+                                               self.options.ctSzUnit) )        
+        circle = group.add(inkex.Circle(cx=str(x), cy=str(y), r=str(size/2)))
+        circle.style = inkex.Style().parse_str(style)
+        
+        # finally, we should change the selection from the element to
+        # the new group, but this don't work as long as individual nodes
+        # are selected (which is usually the case)
+        self.svg.set_selected(group)
+
+
     # returns <true> if we have selected nodes from the object given
     # by name. Indices of selected nodes matching the given object name 
     # and subpath index are appended to the given index list
@@ -295,10 +341,13 @@ class ParallelTranlationExtension(inkex.EffectExtension):
         sub_idx = 0
         hint = ""
         for sub in elem.path.to_superpath():
-            # Calculate the objects rotation angle alpha.
+            # Calculate the objects rotation angle <alpha>. For this,
+            # we assume a line between two nodes of the object. 
             # A horizontal line from left to right is 0 degrees.
             # Positive angles means the line is rotated clockwise.
             # -180 < alpha <= +180
+            
+            # Select the two nodes to use for the calculation
             node_idx = []
             if self.have_selected_nodes( elem.get_id(), sub_idx, node_idx ):
                 # we have selected nodes from this element.
@@ -309,11 +358,13 @@ class ParallelTranlationExtension(inkex.EffectExtension):
                     p2_idx = node_idx[1]
                     hint = " (Segment defined by selected nodes)"
                 else:
+                    # ohterwise, we'll skip this sub-path and try the
+                    # next from the same element.
                     sub_idx += 1
                     continue
             else:
-                # if no nodes have been selected, we use
-                # the start- and endnode of the sub-path
+                # if no nodes have been selected in this element, we
+                # use the start- and end-node of the sub-path
                 p1_idx = 0
                 p2_idx = -1
             
@@ -370,7 +421,13 @@ class ParallelTranlationExtension(inkex.EffectExtension):
                 if self.options.reverseA:
                     alpha = alpha + math.radians(180)
                 self.align(xm, ym, alpha, length)
-            
+
+            elif self.options.tab == "group":
+                if length > 0:
+                    if self.options.reverseG:
+                        alpha = alpha + math.radians(180)
+                    self.group(elem, xm, ym, alpha)
+                            
             elif self.options.tab == "info":
                 msg = "Measuring result:"
                 self.msg(msg)

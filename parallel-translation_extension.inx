@@ -6,11 +6,14 @@
   <param name="tab" type="notebook">
 
     <page name="info" gui-text="Info">
-      <label xml:space="preserve">This extension allows to do parallel translations of selected paths.
+      <label xml:space="preserve">This extension allows parallel translations and alignment operations of selected straight lines. These lines can be simple path objects (with only start- and end-node) or line segments of larger path objects.
 
-To show information about first selected path, use this tab.
-To apply the translation to all selcted paths, use the 'Translation' tab.
-To align a group to a path, use the 'Group-Alignment' tab.
+To show information about the selected paths/lines, use this tab.
+To apply the translation to all selcted paths/lines, use the 'Translation' tab.
+To align a group to a path/line, use the 'Group-Alignment' tab.
+To turn a line/path into a alignment group, use the 'Obj-to-Group' tab.
+
+Alignment groups shall contain an object to mark its 'rotation center'. The extention identifies this object by its fill-color. To setup this color, use the 'Group-Alignment' tab. During alignment, the 'rotation center' of the group is placed onto the middle of the selected path/line, and the group is rotated around this center.
       </label>
      </page>
 
@@ -69,6 +72,30 @@ To align a group to a path, use the 'Group-Alignment' tab.
       <param name="reverseA" type="boolean"
         gui-text="Rotate group by an additional angle of 180 degrees" 
         gui-description="This may be handy in case the start- and end-node of the controlling path are reversed.">false</param>
+    </page>
+
+    <page name="group" gui-text="Obj-to-Goup">
+      <hbox>
+        <label>Rotation center object size:</label>
+        <spacer size="expand"></spacer>
+        <param name="ctSize" type="float" precision="3" min="-9999" max="9999" gui-text="">1</param>
+        <param name="ctSzUnit" type="optiongroup" appearance="combo" gui-text="">
+            <option value="px">px</option>
+            <option value="pt">pt</option>
+            <option value="in">in</option>
+            <option value="mm">mm</option>
+            <option value="cm">cm</option>
+            <option value="m">m</option>
+            <option value="km">km</option>
+            <option value="Q">Q</option>
+            <option value="pc">pc</option>
+            <option value="yd">yd</option>
+            <option value="ft">ft</option>
+        </param>
+      </hbox>
+      <param name="reverseG" type="boolean"
+        gui-text="Rotate group by an additional angle of 180 degrees" 
+        gui-description="This may be handy in case the start- and end-node of the controlling path segment are reversed.">false</param>        
     </page>
 
    </param>
