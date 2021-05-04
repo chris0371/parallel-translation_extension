@@ -80,6 +80,12 @@
 #   - New: Added the 'Obj-to-Group' tab.
 #   - Mod: Updated the info-tab description.
 #   
+# V0.5  2021-05-04 :
+#   - New: Added 'remove rotation center object' checkbox.
+#   - Mod: Added LICENCE file.
+#   - Mod: Changed default rotation center object color to neon green.
+#          (because pink has already been used for cut-lines in some
+#          existing drawings)
 #
 
 import math
@@ -107,6 +113,7 @@ class ParallelTranlationExtension(inkex.EffectExtension):
         pars.add_argument("--lengthModeA"  , type=str          , default="none", help="Group length adjustment method")
         pars.add_argument("--endpTol"      , type=int          , default=15    , help="Enpoint tolerance (percent of group width)")
         pars.add_argument("--colorA"       , type=int          , default=0     , help="Color of rotation center circle")
+        pars.add_argument("--rmFromGroup"  , type=inkex.Boolean, default=False , help="remove rotation center object from aligned group")
         pars.add_argument("--reverseA"     , type=inkex.Boolean, default=False , help="additinal group rotate by 180 degrees")
         # 'group' Tab
         pars.add_argument("--ctSize"       , type=float        , default=1     , help="Size of rotation center object")
@@ -252,9 +259,15 @@ class ParallelTranlationExtension(inkex.EffectExtension):
         for child in objToMove.iterchildren():
             if child.style.get_color(name='fill') == rotation_col:
                 rotation_bb = child.bounding_box()
+                break
         if rotation_bb is None:
             raise inkex.AbortExtension(
                 "No rotation center object found in group.")
+
+        # Remove the rotation center object from the group if we have
+        # been instructed to do so.
+        if self.options.rmFromGroup:
+            child.delete()
 
         # adjust the objects length. Since we haven't moved or rotated
         # it by now, we have to adjust its width only.
