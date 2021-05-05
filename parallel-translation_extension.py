@@ -87,6 +87,10 @@
 #          (because pink has already been used for cut-lines in some
 #          existing drawings)
 #
+# V0.6  2021-05-05 :
+#   - Mod: added a workaround for un-selecting a path after we've 
+#          created a rotation-group out of it.
+#
 
 import math
 import inkex
@@ -313,10 +317,10 @@ class ParallelTranlationExtension(inkex.EffectExtension):
         elem.transform = tr * elem.transform
         self.recursiveFuseTransform(elem)
 
-        # now, draw the roration center object and group it with
-        # the original element
+        # Add a new group and put a rotation center object and a copy 
+        # of the originally selected object in there. 
         group = elem.getparent().add(inkex.Group())
-        group.add(elem)
+        group.add(elem.duplicate())
         style = "color:#000000;fill:{};stroke-width:1;stroke:none".format(
             str(inkex.Color(self.options.colorA).to_rgb()))
         size = self.svg.unittouu('{}{}'.format(self.options.ctSize, 
@@ -324,10 +328,11 @@ class ParallelTranlationExtension(inkex.EffectExtension):
         circle = group.add(inkex.Circle(cx=str(x), cy=str(y), r=str(size/2)))
         circle.style = inkex.Style().parse_str(style)
         
-        # finally, we should change the selection from the element to
-        # the new group, but this don't work as long as individual nodes
-        # are selected (which is usually the case)
-        self.svg.set_selected(group)
+        # Delete the original element to remove the selection from it.
+        # Note that self.svg.set_selected(group) don't work. See:
+        # https://inkscape.org/forums/extensions/how-to-clear-node-selection/
+        elem.delete()
+
 
 
     # returns <true> if we have selected nodes from the object given
