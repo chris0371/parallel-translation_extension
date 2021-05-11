@@ -6,7 +6,8 @@
   <param name="tab" type="notebook">
 
     <page name="info" gui-text="Info">
-      <label xml:space="preserve">This extension allows parallel translations and alignment operations of selected straight lines. These lines can be simple path objects (with only start- and end-node) or line segments of larger path objects.
+      <label xml:space="preserve">Parallel-Translation v0.7 (c) 2021 Christian Vogt
+This extension allows parallel translations and alignment operations of selected straight lines. These lines can be simple path objects (with only start- and end-node) or line segments of larger path objects.
 
 To show information about the selected paths/lines, use this tab.
 To apply the translation to all selcted paths/lines, use the 'Translation' tab.

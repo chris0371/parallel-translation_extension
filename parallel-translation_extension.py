@@ -1,9 +1,7 @@
 #!/usr/bin/env python
 # coding=utf-8
 #
-# Copyright (C) 2021, Stiftung Universität Hildesheim, 
-#                     Institut für Physik
-#                     Christian Vogt <vogtc@uni-hildesheim.de>
+# Copyright (C) 2021 Christian Vogt <vogtc@uni-hildesheim.de>
 #
 # recursiveFuseTransform() has originally been written by 
 # Mark "Klowner" Riedesel
@@ -15,9 +13,8 @@
 #
 #
 # This program is free software; you can redistribute it and/or modify
-# it under the terms of the GNU General Public License as published by
-# the Free Software Foundation; either version 2 of the License, or
-# (at your option) any later version.
+# it under the terms of the GNU General Public License version 2, as
+# published by the Free Software Foundation.
 #
 # This program is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -91,6 +88,11 @@
 #   - Mod: added a workaround for un-selecting a path after we've 
 #          created a rotation-group out of it.
 #
+# V0.7  2021-05-11 :
+#   - Mod: Added more error-checking to the 'Obj-to-Group' function.
+#   - Mod: 'Obj-to-Group' is now able to group multiple objects.
+#   - Mod: Changed copyright and put version information into inx-file.
+#
 
 import math
 import inkex
@@ -127,14 +129,26 @@ class ParallelTranlationExtension(inkex.EffectExtension):
 
     def effect(self):
         pathCount = 0
+        pathsWNodesCount = 0
         groupCount = 0
         for elem in self.svg.selected.values():
             if isinstance(elem, inkex.PathElement):
                 pathCount += 1
+                nodes = self.count_selected_nodes( elem.get_id() )
+                if nodes > 0:
+                    if nodes == 2:
+                        pathsWNodesCount += 1
+                        self.groupCenterPath = elem
+                    else:                        
+                        raise inkex.AbortExtension(
+                            "When selecting individual nodes, you should "
+                            "always select exactly two from the same "
+                            "(sub-)path.")
+
             elif isinstance(elem, inkex.Group):
                 groupCount += 1
                 self.alignGroup = elem
-            
+
         if self.options.tab == "align":
             if pathCount == 0 or groupCount == 0:
                 raise inkex.AbortExtension(
@@ -147,6 +161,11 @@ class ParallelTranlationExtension(inkex.EffectExtension):
                 raise inkex.AbortExtension(
                     "To align to multiple paths at once, please choose "
                     "to apply the alignment to copies of the group.")
+        elif self.options.tab == "group":
+            if pathsWNodesCount != 1:
+                raise inkex.AbortExtension(
+                    "In group mode, please select exactly two nodes "
+                    "from the same (sub-)path.")
         else:        
             if pathCount == 0:
                 raise inkex.AbortExtension(
@@ -165,9 +184,12 @@ class ParallelTranlationExtension(inkex.EffectExtension):
                 msg = " Nodes: {}"
                 self.msg(msg.format(self.options.selected_nodes))
             self.msg(' ')
-            
-        for elem in self.svg.selected.values():
-            self.process_node(elem)
+        
+        if self.options.tab == "group": 
+            self.process_node(self.groupCenterPath)
+        else:
+            for elem in self.svg.selected.values():
+                self.process_node(elem)
 
 
     @staticmethod
@@ -306,50 +328,49 @@ class ParallelTranlationExtension(inkex.EffectExtension):
         self.recursiveFuseTransform(objToMove)
 
 
-    def group(self, elem, x, y, alpha):
-        # first, apply any transformations the object may have already
-        # so we are starting with no transform assigned to the group
-        self.recursiveFuseTransform(elem)
-        
-        # then, we'll rotate it back to the zero position
-        tr = inkex.Transform()
-        tr.add_rotate( math.degrees(-alpha), x, y )
-        elem.transform = tr * elem.transform
-        self.recursiveFuseTransform(elem)
-
-        # Add a new group and put a rotation center object and a copy 
-        # of the originally selected object in there. 
-        group = elem.getparent().add(inkex.Group())
-        group.add(elem.duplicate())
+    def make_group(self, parent, x, y, alpha):
+        # Add a new group and put a rotation center object into it.
+        group = parent.add(inkex.Group())
         style = "color:#000000;fill:{};stroke-width:1;stroke:none".format(
             str(inkex.Color(self.options.colorA).to_rgb()))
         size = self.svg.unittouu('{}{}'.format(self.options.ctSize, 
                                                self.options.ctSzUnit) )        
         circle = group.add(inkex.Circle(cx=str(x), cy=str(y), r=str(size/2)))
         circle.style = inkex.Style().parse_str(style)
+
+        # put duplicates of all selected elements into the group.
+        for elem in self.svg.selected.values():
+            group.add(elem.duplicate())
         
-        # Delete the original element to remove the selection from it.
-        # Note that self.svg.set_selected(group) don't work. See:
+        # Rotate the whole new group back to it's zero position
+        tr = inkex.Transform()
+        tr.add_rotate( math.degrees(-alpha), x, y )
+        group.transform = tr * group.transform
+        self.recursiveFuseTransform(group)
+
+        # delete all selected elements to remove the selection.
+        # Note that self.svg.set_selected() don't work. See:
         # https://inkscape.org/forums/extensions/how-to-clear-node-selection/
-        elem.delete()
+        for elem in self.svg.selected.values():
+            elem.delete()
 
 
 
-    # returns <true> if we have selected nodes from the object given
+    # Returns the number of selected nodes from the object given
     # by name. Indices of selected nodes matching the given object name 
     # and subpath index are appended to the given index list
-    def have_selected_nodes(self, name, sub_idx, idx_list ):
-        name_found = False
+    def count_selected_nodes(self, name, sub_idx=0, idx_list=[] ):
+        nodeCount = 0
         for node in self.options.selected_nodes:
             # The string with selected nodes looks like this:
             # 'Object-id:subpath-index:node-index'
             # example: 'path1419:0:1'            
             substr = node.split(":")
             if name == substr[0]:
-                name_found = True
+                nodeCount += 1
                 if sub_idx == int(substr[1]):
                     idx_list.append(int(substr[2]))
-        return name_found
+        return nodeCount
         
 
     def process_node(self, elem):
@@ -367,7 +388,7 @@ class ParallelTranlationExtension(inkex.EffectExtension):
             
             # Select the two nodes to use for the calculation
             node_idx = []
-            if self.have_selected_nodes( elem.get_id(), sub_idx, node_idx ):
+            if self.count_selected_nodes( elem.get_id(), sub_idx, node_idx ) > 0:
                 # we have selected nodes from this element.
                 if len(node_idx) == 2:
                     # if the user selected exactly two individual nodes
@@ -376,7 +397,7 @@ class ParallelTranlationExtension(inkex.EffectExtension):
                     p2_idx = node_idx[1]
                     hint = " (Segment defined by selected nodes)"
                 else:
-                    # ohterwise, we'll skip this sub-path and try the
+                    # otherwise, we'll skip this sub-path and try the
                     # next from the same element.
                     sub_idx += 1
                     continue
@@ -444,7 +465,7 @@ class ParallelTranlationExtension(inkex.EffectExtension):
                 if length > 0:
                     if self.options.reverseG:
                         alpha = alpha + math.radians(180)
-                    self.group(elem, xm, ym, alpha)
+                    self.make_group(elem.getparent(), xm, ym, alpha)
                             
             elif self.options.tab == "info":
                 msg = "Measuring result:"
