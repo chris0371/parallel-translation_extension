@@ -290,16 +290,15 @@ class ParallelTranlationExtension(inkex.EffectExtension):
             raise inkex.AbortExtension(
                 "No rotation center object found in group.")
 
-        # Remove the rotation center object from the group if we have
-        # been instructed to do so.
-        if self.options.rmFromGroup:
-            child.delete()
-
         # adjust the objects length. Since we haven't moved or rotated
         # it by now, we have to adjust its width only.
         if self.options.lengthModeA != "none":
             if self.options.lengthModeA == "scale":
-                if not math.isclose( rotation_bb.x.center, objToMove.bounding_box().x.center ):
+                if not math.isclose( rotation_bb.x.center, objToMove.bounding_box().x.center, rel_tol=1e-05):
+                    msg = "Rotation center x = {}"
+                    self.msg(msg.format(rotation_bb.x.center))
+                    msg = "Group center x = {}"
+                    self.msg(msg.format(objToMove.bounding_box().x.center))
                     raise inkex.AbortExtension(
                         "Warning: rotation center is outside the groups horizontal center. "
                         "This is not supported in stretch/resize adjustment mode. "
@@ -309,10 +308,19 @@ class ParallelTranlationExtension(inkex.EffectExtension):
                 tr.add_scale( length / objToMove.bounding_box().width, 1 )
                 objToMove.transform = tr * objToMove.transform
                 self.recursiveFuseTransform(objToMove)
+                # it looks like the scale transformation also applies
+                # some horizontal movement, so we need to retrieve 
+                # the rotation_bb again afterwards. 
+                rotation_bb = child.bounding_box()
                 
             elif self.options.lengthModeA == "endpoints":
                 self.edgeResize( objToMove, length, rotation_bb )
         
+        # Remove the rotation center object from the group if we have
+        # been instructed to do so.
+        if self.options.rmFromGroup:
+            child.delete()
+
         # then, move it to the desired location
         dx = x - rotation_bb.x.center
         dy = y - rotation_bb.y.center
@@ -572,15 +580,17 @@ class ParallelTranlationExtension(inkex.EffectExtension):
                 abs(newxy2[0] - newxy3[0]) ** 2 + abs(newxy2[1] - newxy3[1]) ** 2
             )
 
+            """
             if not isequal(edgex, edgey) and (
                 node.TAG == "circle"
                 or not isequal(newxy2[0], newxy3[0])
                 or not isequal(newxy1[1], newxy2[1])
-            ):
+            ):                
                 inkex.utils.errormsg(
                     "Warning: Shape %s (%s) is approximate only, try Object to path first for better results"
                     % (node.TAG, node.get("id"))
                 )
+            """
 
             if node.TAG == "ellipse":
                 node.set("rx", edgex / 2)
