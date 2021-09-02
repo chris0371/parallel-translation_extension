@@ -93,6 +93,12 @@
 #   - Mod: 'Obj-to-Group' is now able to group multiple objects.
 #   - Mod: Changed copyright and put version information into inx-file.
 #
+# V1.0  2021-09-03 :
+#   - Doc: Moved to github repository.
+#   - Doc: Added README.md and screenshot art.
+#   - Doc: Now using the mail address that corresponds to github account.
+#   - Fix: Fixed stretch/resize option of group alignment.
+
 
 import math
 import inkex
