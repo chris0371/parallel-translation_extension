@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # coding=utf-8
 #
-# Copyright (C) 2021 Christian Vogt <vogtc@uni-hildesheim.de>
+# Copyright (C) 2021 Christian Vogt <chris371@topmail-files.de>
 #
 # recursiveFuseTransform() has originally been written by 
 # Mark "Klowner" Riedesel

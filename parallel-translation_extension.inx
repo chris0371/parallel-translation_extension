@@ -14,7 +14,7 @@ To apply the translation to all selcted paths/lines, use the 'Translation' tab.
 To align a group to a path/line, use the 'Group-Alignment' tab.
 To turn a line/path into a alignment group, use the 'Obj-to-Group' tab.
 
-Alignment groups shall contain an object to mark its 'rotation center'. The extention identifies this object by its fill-color. To setup this color, use the 'Group-Alignment' tab. During alignment, the 'rotation center' of the group is placed onto the middle of the selected path/line, and the group is rotated around this center.
+Alignment groups shall contain an object to mark its 'rotation center'. The extension identifies this object by its fill-color. To setup this color, use the 'Group-Alignment' tab. During alignment, the 'rotation center' of the group is placed onto the middle of the selected path/line, and the group is rotated around this center.
       </label>
      </page>
 
@@ -62,7 +62,7 @@ Alignment groups shall contain an object to mark its 'rotation center'. The exte
         <option value="obj" >the group keeping a copy</option>
       </param>
       <param name="lengthModeA" type="optiongroup" appearance="combo"
-        gui-text="Group length adjustment method:"
+        gui-text="Group width adjustment method:"
         gui-description="Selects how the group width shall be adjusted to match the path length">
           <option value="none">no adjustment</option>
           <option value="scale">stretch/resize the group</option>
