@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # coding=utf-8
 #
-# Copyright (C) 2021 Christian Vogt <chris371@topmail-files.de>
+# Copyright (C) 2021, 2022 Christian Vogt <chris371@topmail-files.de>
 #
 # recursiveFuseTransform() has originally been written by 
 # Mark "Klowner" Riedesel
@@ -27,7 +27,7 @@
 #
 
 
-# This extension was written and tested using Inkscape V1.0.2 
+# This extension was written and tested using Inkscape V1.0.2 and V1.2.0
 # Most probably, it will not work on versions prior to V1.0
 #
 # Resources I found being useful and inspiring:
@@ -98,6 +98,9 @@
 #   - Doc: Added README.md and screenshot art.
 #   - Doc: Now using the mail address that corresponds to github account.
 #   - Fix: Fixed stretch/resize option of group alignment.
+#
+# V1.1  2022-06-15 :
+#   - Fix: Fixed deprecated warnings from Inkscape V1.2.0
 
 
 import math
@@ -107,6 +110,16 @@ from inkex.transforms import Transform
 from inkex.styles import Style
 
 NULL_TRANSFORM = Transform([[1.0, 0.0, 0.0], [0.0, 1.0, 0.0]])
+
+
+def matrix_mul(a, b):
+    # inkscape V1.2.0 has replaced the * with the @ operator, 
+    # see https://gitlab.com/inkscape/extensions/-/issues/327
+    # To maintain support for pre-1.2.0, we add a try/except block. 
+    try:
+        return a @ b
+    except TypeError:
+        return a * b
 
 
 class ParallelTranlationExtension(inkex.EffectExtension):
@@ -131,6 +144,20 @@ class ParallelTranlationExtension(inkex.EffectExtension):
         pars.add_argument("--ctSize"       , type=float        , default=1     , help="Size of rotation center object")
         pars.add_argument("--ctSzUnit"     , type=str          , default="mm"  , help="Unit of the size")
         pars.add_argument("--reverseG"     , type=inkex.Boolean, default=False , help="additinal group rotate by 180 degrees")
+
+
+    def svg_width(self):
+        try:
+            return self.svg.viewbox_width
+        except AttributeError:
+            return self.svg.width
+
+
+    def svg_height(self):
+        try:
+            return self.svg.viewbox_height
+        except AttributeError:
+            return self.svg.height
 
 
     def effect(self):
@@ -183,7 +210,7 @@ class ParallelTranlationExtension(inkex.EffectExtension):
             msg = " Document name: {}"
             self.msg(msg.format(self.svg.name))
             msg = " Dimensions: width={} height={} scale={} unit={}"
-            self.msg(msg.format(self.svg.width, self.svg.height, self.svg.scale, self.svg.unit))
+            self.msg(msg.format(self.svg_width(), self.svg_height(), self.svg.scale, self.svg.unit))
             msg = " Selected: {} group(s), {} path(s), {} node(s)"
             self.msg(msg.format(groupCount, pathCount, len(self.options.selected_nodes)))
             if self.options.selected_nodes:
@@ -312,7 +339,7 @@ class ParallelTranlationExtension(inkex.EffectExtension):
                     
                 tr = inkex.Transform()
                 tr.add_scale( length / objToMove.bounding_box().width, 1 )
-                objToMove.transform = tr * objToMove.transform
+                objToMove.transform = matrix_mul( tr, objToMove.transform )
                 self.recursiveFuseTransform(objToMove)
                 # it looks like the scale transformation also applies
                 # some horizontal movement, so we need to retrieve 
@@ -332,13 +359,13 @@ class ParallelTranlationExtension(inkex.EffectExtension):
         dy = y - rotation_bb.y.center
         tr = inkex.Transform()
         tr.add_translate( dx, dy )
-        objToMove.transform = tr * objToMove.transform
+        objToMove.transform = matrix_mul( tr, objToMove.transform )
         self.recursiveFuseTransform(objToMove)
 
         # finally, rotate it by the given angle at the desired location        
         tr = inkex.Transform()
         tr.add_rotate( math.degrees(alpha), x, y )
-        objToMove.transform = tr * objToMove.transform
+        objToMove.transform = matrix_mul( tr, objToMove.transform )
         self.recursiveFuseTransform(objToMove)
 
 
@@ -359,7 +386,7 @@ class ParallelTranlationExtension(inkex.EffectExtension):
         # Rotate the whole new group back to it's zero position
         tr = inkex.Transform()
         tr.add_rotate( math.degrees(-alpha), x, y )
-        group.transform = tr * group.transform
+        group.transform = matrix_mul( tr, group.transform )
         self.recursiveFuseTransform(group)
 
         # delete all selected elements to remove the selection.
@@ -524,7 +551,7 @@ class ParallelTranlationExtension(inkex.EffectExtension):
 
     def recursiveFuseTransform(self, node, transf=[[1.0, 0.0, 0.0], [0.0, 1.0, 0.0]]):
 
-        transf = Transform(transf) * Transform(node.get("transform", None))
+        transf = matrix_mul( Transform(transf), Transform(node.get("transform", None)) )
 
         if 'transform' in node.attrib:
             del node.attrib['transform']

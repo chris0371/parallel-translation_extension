@@ -5,7 +5,8 @@ straight lines.<br>
 These lines can be simple path objects (with only start- and end-node)
 or line segments of larger path objects.<br>
 <br>
-This extension was been written and tested using Inkscape V1.0.2 <br>
+This extension was been written and tested using 
+Inkscape V1.0.2 and V1.2.0<br>
 Most probably, it will not work on versions prior to V1.0 <br>
 
 
