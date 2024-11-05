@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # coding=utf-8
 #
-# Copyright (C) 2021, 2022 Christian Vogt <chris371@topmail-files.de>
+# Copyright (C) 2021 - 2024 Christian Vogt <chris371@topmail-files.de>
 #
 # recursiveFuseTransform() has originally been written by 
 # Mark "Klowner" Riedesel
@@ -101,6 +101,10 @@
 #
 # V1.1  2022-06-15 :
 #   - Fix: Fixed deprecated warnings from Inkscape V1.2.0
+#
+# V1.2  2024-11-04 :
+#   - Fix: Fixed 'Obj-to-Group' for objects that contain a transform
+#          matrix already.
 
 
 import math
@@ -381,7 +385,9 @@ class ParallelTranlationExtension(inkex.EffectExtension):
 
         # put duplicates of all selected elements into the group.
         for elem in self.svg.selected.values():
-            group.add(elem.duplicate())
+            part = elem.duplicate()
+            self.recursiveFuseTransform(part)
+            group.add(part)
         
         # Rotate the whole new group back to it's zero position
         tr = inkex.Transform()
