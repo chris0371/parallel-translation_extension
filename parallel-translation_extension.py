@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # coding=utf-8
 #
-# Copyright (C) 2021 - 2024 Christian Vogt <chris371@topmail-files.de>
+# Copyright (C) 2021 - 2025 Christian Vogt <chris371@topmail-files.de>
 #
 # recursiveFuseTransform() has originally been written by 
 # Mark "Klowner" Riedesel
@@ -27,7 +27,8 @@
 #
 
 
-# This extension was written and tested using Inkscape V1.0.2 and V1.2.0
+# This extension was written and tested using 
+# Inkscape V1.0.2, V1.2.0 and V1.3.2
 # Most probably, it will not work on versions prior to V1.0
 #
 # Resources I found being useful and inspiring:
@@ -105,6 +106,10 @@
 # V1.2  2024-11-04 :
 #   - Fix: Fixed 'Obj-to-Group' for objects that contain a transform
 #          matrix already.
+#
+# V1.3  2025-04-23 :
+#   - Mod: 'Group-Alignment' is now able to un-group the aligned object 
+#          in case there is only one object left in that group. 
 
 
 import math
@@ -143,6 +148,7 @@ class ParallelTranlationExtension(inkex.EffectExtension):
         pars.add_argument("--endpTol"      , type=int          , default=15    , help="Enpoint tolerance (percent of group width)")
         pars.add_argument("--colorA"       , type=int          , default=0     , help="Color of rotation center circle")
         pars.add_argument("--rmFromGroup"  , type=inkex.Boolean, default=False , help="remove rotation center object from aligned group")
+        pars.add_argument("--unGroup"      , type=inkex.Boolean, default=True  , help="un-group if there's only one object left")
         pars.add_argument("--reverseA"     , type=inkex.Boolean, default=False , help="additinal group rotate by 180 degrees")
         # 'group' Tab
         pars.add_argument("--ctSize"       , type=float        , default=1     , help="Size of rotation center object")
@@ -371,6 +377,14 @@ class ParallelTranlationExtension(inkex.EffectExtension):
         tr.add_rotate( math.degrees(alpha), x, y )
         objToMove.transform = matrix_mul( tr, objToMove.transform )
         self.recursiveFuseTransform(objToMove)
+
+        # Remove the grouping if there's only one item left and we have
+        # been instructed to do so.
+        if self.options.unGroup:
+            if len( objToMove.getchildren() ) == 1:
+                inner = objToMove.getchildren().pop()
+                objToMove.getparent().add(inner)
+                objToMove.delete()
 
 
     def make_group(self, parent, x, y, alpha):

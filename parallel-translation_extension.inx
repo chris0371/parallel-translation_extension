@@ -6,7 +6,7 @@
   <param name="tab" type="notebook">
 
     <page name="info" gui-text="Info">
-      <label xml:space="preserve">Parallel-Translation v1.2 (c) 2021-2024 Christian Vogt
+      <label xml:space="preserve">Parallel-Translation v1.3 (c) 2021-2025 Christian Vogt
 This extension allows parallel translations and alignment operations of selected straight lines. These lines can be simple path objects (with only start- and end-node) or line segments of larger path objects.
 
 To show information about the selected paths/lines, use this tab.
@@ -79,6 +79,9 @@ Alignment groups shall contain an object to mark its 'rotation center'. The exte
       <param name="rmFromGroup" type="boolean"
         gui-text="Remove rotation center object from aligned group"
         >false</param>
+      <param name="unGroup" type="boolean"
+        gui-text="Un-group if there's only one object left"
+        >true</param>
       <param name="reverseA" type="boolean"
         gui-text="Rotate group by an additional angle of 180 degrees" 
         gui-description="This may be handy in case the start- and end-node of the controlling path are reversed."
